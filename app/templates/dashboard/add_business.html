@@ -1,0 +1,92 @@
+{% extends "dashboard/base.html" %}
+{% block title %}Add Business{% endblock %}
+{% block content %}
+<h2 style="margin-bottom: 20px; font-size: 22px;">Add New Business</h2>
+
+<div class="card">
+    <form method="POST" action="/api/businesses">
+        <div class="form-row">
+            <div>
+                <label>Business Name *</label>
+                <input type="text" name="name" required placeholder="New Beginning Autos Care">
+            </div>
+            <div>
+                <label>Industry *</label>
+                <input type="text" name="industry" required placeholder="Automotive Repair">
+            </div>
+        </div>
+
+        <label>Description *</label>
+        <textarea name="description" rows="3" required placeholder="What does this business do? What makes it unique?"></textarea>
+
+        <label>Services</label>
+        <textarea name="services" rows="2" placeholder="Oil changes, brake repair, engine diagnostics, etc."></textarea>
+
+        <div class="form-row">
+            <div>
+                <label>Location</label>
+                <input type="text" name="location" placeholder="Fort Worth, TX">
+            </div>
+            <div>
+                <label>Phone</label>
+                <input type="text" name="phone" placeholder="(469) 396-5418">
+            </div>
+        </div>
+
+        <label>Website URL</label>
+        <input type="url" name="website_url" placeholder="https://example.com">
+
+        <label>Target Audience</label>
+        <input type="text" name="target_audience" placeholder="Local car owners, families, fleet managers">
+
+        <div class="form-row">
+            <div>
+                <label>Brand Tone</label>
+                <select name="tone">
+                    <option value="professional">Professional</option>
+                    <option value="friendly">Friendly & Casual</option>
+                    <option value="humorous">Humorous</option>
+                    <option value="authoritative">Authoritative / Expert</option>
+                    <option value="inspirational">Inspirational</option>
+                </select>
+            </div>
+            <div>
+                <label>Timezone</label>
+                <select name="timezone">
+                    <option value="America/Chicago">Central (Chicago)</option>
+                    <option value="America/New_York">Eastern (New York)</option>
+                    <option value="America/Denver">Mountain (Denver)</option>
+                    <option value="America/Los_Angeles">Pacific (Los Angeles)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label>Primary Brand Color</label>
+                <input type="color" name="brand_color_primary" value="#1a73e8">
+            </div>
+            <div>
+                <label>Secondary Brand Color</label>
+                <input type="color" name="brand_color_secondary" value="#ffffff">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label>Posting Days</label>
+                <input type="text" name="posting_days" value="tuesday,friday" placeholder="tuesday,friday">
+            </div>
+            <div>
+                <label>Posting Time</label>
+                <input type="time" name="posting_time" value="10:00">
+            </div>
+        </div>
+
+        <div style="margin-top: 24px;">
+            <button type="submit" class="btn btn-primary">Add Business</button>
+            <a href="/dashboard" class="btn btn-secondary" style="margin-left: 8px;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
