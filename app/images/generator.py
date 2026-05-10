@@ -114,14 +114,12 @@ def generate_post_image(
         (margin - 20, tagline_start_y + total_tagline_height + 20, 1, -1),
         (WIDTH - margin + 20, tagline_start_y + total_tagline_height + 20, -1, -1),
     ]:
-        draw.rectangle(
-            [corner_x, corner_y, corner_x + accent_len * dx, corner_y + accent_width * dy],
-            fill=secondary_rgb,
-        )
-        draw.rectangle(
-            [corner_x, corner_y, corner_x + accent_width * dx, corner_y + accent_len * dy],
-            fill=secondary_rgb,
-        )
+        x1, x2 = corner_x, corner_x + accent_len * dx
+        y1, y2 = corner_y, corner_y + accent_width * dy
+        draw.rectangle([min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)], fill=secondary_rgb)
+        x1, x2 = corner_x, corner_x + accent_width * dx
+        y1, y2 = corner_y, corner_y + accent_len * dy
+        draw.rectangle([min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)], fill=secondary_rgb)
 
     filename = f"{uuid.uuid4().hex[:12]}.png"
     filepath = OUTPUT_DIR / filename
