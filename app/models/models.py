@@ -24,7 +24,7 @@ class Business(Base):
     posting_time = Column(String(10), default="10:00")
     timezone = Column(String(50), default="America/Chicago")
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     platforms = relationship("PlatformCredential", back_populates="business", cascade="all, delete-orphan")
     posts = relationship("Post", back_populates="business", cascade="all, delete-orphan")
@@ -38,7 +38,7 @@ class PlatformCredential(Base):
     platform = Column(String(50), nullable=False)
     credentials = Column(JSON, nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     business = relationship("Business", back_populates="platforms")
 
@@ -51,8 +51,8 @@ class Post(Base):
     content_text = Column(Text, nullable=False)
     image_path = Column(String(500), default="")
     post_type = Column(String(50), default="promotional")
-    scheduled_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    scheduled_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     business = relationship("Business", back_populates="posts")
     deliveries = relationship("PostDelivery", back_populates="post", cascade="all, delete-orphan")
@@ -67,6 +67,6 @@ class PostDelivery(Base):
     status = Column(String(20), default="pending")
     platform_post_id = Column(String(255), default="")
     error_message = Column(Text, default="")
-    delivered_at = Column(DateTime, nullable=True)
+    delivered_at = Column(DateTime(timezone=True), nullable=True)
 
     post = relationship("Post", back_populates="deliveries")
