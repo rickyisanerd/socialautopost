@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
@@ -21,9 +22,13 @@ async def lifespan(app: FastAPI):
     yield
 
 
+Path("generated/images").mkdir(parents=True, exist_ok=True)
 app = FastAPI(title="SocialAutoPost", lifespan=lifespan)
 app.include_router(dashboard_router)
 app.include_router(businesses_router)
+
+
+app.mount("/static/images", StaticFiles(directory="generated/images"), name="generated_images")
 
 
 @app.get("/")

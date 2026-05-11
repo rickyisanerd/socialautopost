@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     linkedin_access_token: str = ""
     linkedin_org_id: str = ""
 
+    base_url: str = "http://localhost:8000"
+
     database_url: str = "sqlite+aiosqlite:///./socialautopost.db"
     secret_key: str = "change-this-to-a-random-string"
     posting_days: str = "tuesday,friday"

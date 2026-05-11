@@ -101,7 +101,10 @@ async def _process_business(db: AsyncSession, biz: Business):
 
         try:
             if cred.platform == "instagram":
-                result = await client.post(content["text"], image_url=image_path)
+                # Instagram requires a public URL, not a local path
+                image_filename = image_path.split("/")[-1]
+                public_image_url = f"{settings.base_url}/static/images/{image_filename}"
+                result = await client.post(content["text"], image_url=public_image_url)
             else:
                 result = await client.post(content["text"], image_path=image_path)
 
