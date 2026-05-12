@@ -23,6 +23,7 @@ async def lifespan(app: FastAPI):
 
 
 Path("generated/images").mkdir(parents=True, exist_ok=True)
+Path("generated/videos").mkdir(parents=True, exist_ok=True)
 app = FastAPI(title="SocialAutoPost", lifespan=lifespan)
 app.include_router(dashboard_router)
 app.include_router(businesses_router)
