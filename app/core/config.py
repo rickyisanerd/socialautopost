@@ -21,9 +21,16 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite+aiosqlite:///./socialautopost.db"
     secret_key: str = "change-this-to-a-random-string"
+    admin_username: str = "admin"
+    admin_password: str = "changeme"
     posting_days: str = "tuesday,friday"
     posting_time: str = "10:00"
     timezone: str = "America/Chicago"
+
+    # Email notifications (Resend HTTP API)
+    resend_api_key: str = ""
+    smtp_from: str = ""
+    notification_email: str = ""
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

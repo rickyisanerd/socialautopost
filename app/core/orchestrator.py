@@ -12,6 +12,7 @@ from app.platforms.facebook import FacebookClient
 from app.platforms.instagram import InstagramClient
 from app.platforms.x_twitter import XTwitterClient
 from app.platforms.linkedin import LinkedInClient
+from app.core.notifications import send_post_notification
 
 log = logging.getLogger("socialautopost")
 
@@ -104,6 +105,7 @@ async def _process_business(db: AsyncSession, biz: Business):
     # Sort so Facebook posts first — we grab its CDN URL for Instagram
     creds = sorted(creds, key=lambda c: 0 if c.platform == "facebook" else (2 if c.platform == "instagram" else 1))
     fb_image_url = None
+    delivery_results = []
 
     for cred in creds:
         delivery = PostDelivery(post_id=post.id, platform=cred.platform, status="pending")
@@ -114,6 +116,7 @@ async def _process_business(db: AsyncSession, biz: Business):
         if not client:
             delivery.status = "failed"
             delivery.error_message = f"Unknown platform: {cred.platform}"
+            delivery_results.append({"platform": cred.platform, "status": "failed", "error": delivery.error_message})
             continue
 
         try:
@@ -135,17 +138,28 @@ async def _process_business(db: AsyncSession, biz: Business):
                 delivery.platform_post_id = result["post_id"]
                 delivery.delivered_at = datetime.now(timezone.utc)
                 log.info(f"Posted to {cred.platform} for {biz.name}: {result['post_id']}")
+                delivery_results.append({"platform": cred.platform, "status": "delivered", "error": None})
             else:
                 delivery.status = "failed"
                 delivery.error_message = result["error"]
                 log.error(f"Failed posting to {cred.platform} for {biz.name}: {result['error']}")
+                delivery_results.append({"platform": cred.platform, "status": "failed", "error": result["error"]})
         except Exception as e:
             delivery.status = "failed"
             delivery.error_message = str(e)
             log.error(f"Exception posting to {cred.platform} for {biz.name}: {e}")
+            delivery_results.append({"platform": cred.platform, "status": "failed", "error": str(e)})
 
     await db.commit()
     log.info(f"Completed image post cycle for {biz.name}")
+
+    send_post_notification(
+        business_name=biz.name,
+        post_type=content["post_type"],
+        content_text=content["text"],
+        image_path=image_path,
+        deliveries=delivery_results,
+    )
 
 
 async def _process_reel(db: AsyncSession, biz: Business):
@@ -205,6 +219,7 @@ async def _process_reel(db: AsyncSession, biz: Business):
     # Facebook first — we need the video URL from FB for Instagram Reels
     creds = sorted(creds, key=lambda c: 0 if c.platform == "facebook" else (2 if c.platform == "instagram" else 1))
     fb_video_url = None
+    delivery_results = []
 
     for cred in creds:
         delivery = PostDelivery(post_id=post.id, platform=cred.platform, status="pending")
@@ -215,6 +230,7 @@ async def _process_reel(db: AsyncSession, biz: Business):
         if not client:
             delivery.status = "failed"
             delivery.error_message = f"Unknown platform: {cred.platform}"
+            delivery_results.append({"platform": cred.platform, "status": "failed", "error": delivery.error_message})
             continue
 
         try:
@@ -251,14 +267,25 @@ async def _process_reel(db: AsyncSession, biz: Business):
                 delivery.platform_post_id = result["post_id"]
                 delivery.delivered_at = datetime.now(timezone.utc)
                 log.info(f"Posted reel to {cred.platform} for {biz.name}: {result['post_id']}")
+                delivery_results.append({"platform": cred.platform, "status": "delivered", "error": None})
             else:
                 delivery.status = "failed"
                 delivery.error_message = result["error"]
                 log.error(f"Failed reel to {cred.platform} for {biz.name}: {result['error']}")
+                delivery_results.append({"platform": cred.platform, "status": "failed", "error": result["error"]})
         except Exception as e:
             delivery.status = "failed"
             delivery.error_message = str(e)
             log.error(f"Exception posting reel to {cred.platform} for {biz.name}: {e}")
+            delivery_results.append({"platform": cred.platform, "status": "failed", "error": str(e)})
 
     await db.commit()
     log.info(f"Completed reel cycle for {biz.name}")
+
+    send_post_notification(
+        business_name=biz.name,
+        post_type="reel",
+        content_text=caption,
+        image_path=image_path,  # Send the static image preview, not the video
+        deliveries=delivery_results,
+    )
