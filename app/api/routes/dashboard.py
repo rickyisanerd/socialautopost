@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from app.core.database import get_db
+from app.core.auth import get_current_user
 from app.models.models import Business, PlatformCredential, Post, PostDelivery
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -12,6 +14,9 @@ templates = Jinja2Templates(directory="app/templates")
 
 @router.get("")
 async def dashboard_home(request: Request, db: AsyncSession = Depends(get_db)):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
     result = await db.execute(
         select(Business).options(
             selectinload(Business.platforms),
@@ -36,6 +41,9 @@ async def dashboard_home(request: Request, db: AsyncSession = Depends(get_db)):
 
 @router.get("/business/{business_id}")
 async def business_detail(request: Request, business_id: int, db: AsyncSession = Depends(get_db)):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
     result = await db.execute(
         select(Business)
         .where(Business.id == business_id)
@@ -59,4 +67,7 @@ async def business_detail(request: Request, business_id: int, db: AsyncSession =
 
 @router.get("/add-business")
 async def add_business_form(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse("dashboard/add_business.html", {"request": request})

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialAutoPost - Login</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1117;
+            color: #e1e4e8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .login-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-card h1 {
+            font-size: 24px;
+            color: #58a6ff;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .login-card p {
+            text-align: center;
+            color: #8b949e;
+            font-size: 14px;
+            margin-bottom: 28px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            color: #8b949e;
+            margin-bottom: 6px;
+            margin-top: 16px;
+        }
+        input {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 100%;
+        }
+        input:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            font-weight: 600;
+            margin-top: 24px;
+            background: #238636;
+            color: #fff;
+        }
+        .btn:hover { background: #2ea043; }
+        .error {
+            background: #3d1214;
+            border: 1px solid #da3633;
+            color: #f85149;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        .lock-icon {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="lock-icon">&#128274;</div>
+        <h1>SocialAutoPost</h1>
+        <p>Sign in to manage your campaigns</p>
+
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST" action="/login">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required autocomplete="username" autofocus>
+
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required autocomplete="current-password">
+
+            <button type="submit" class="btn">Sign In</button>
+        </form>
+    </div>
+</body>
+</html>

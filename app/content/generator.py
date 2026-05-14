@@ -2,6 +2,7 @@ import anthropic
 import json
 import random
 from datetime import datetime
+from app.content.holidays import get_upcoming_holiday
 
 
 POST_TYPES = [
@@ -34,7 +35,23 @@ Return ONLY valid JSON with these fields:
 }"""
 
 
+def _holiday_context() -> str:
+    """Return holiday prompt injection if a holiday is within 7 days."""
+    holiday = get_upcoming_holiday(days_ahead=7)
+    if not holiday:
+        return ""
+    days_until = (holiday["date"] - datetime.now().date()).days
+    timing = "TODAY" if days_until == 0 else f"in {days_until} day{'s' if days_until != 1 else ''}"
+    return f"""
+HOLIDAY ALERT: {holiday['name']} is {timing}!
+Theme: {holiday['theme']}
+Promo angle: {holiday['promo_angle']}
+>>> Tie this post to the holiday. Work in a seasonal special, holiday greeting, or themed offer that makes sense for this business. <<<
+"""
+
+
 def _build_prompt(business: dict, post_type: str) -> str:
+    holiday = _holiday_context()
     return f"""Create a {post_type} social media post for this business:
 
 Business: {business['name']}
@@ -45,7 +62,7 @@ Location: {business.get('location', 'N/A')}
 Target Audience: {business.get('target_audience', 'local customers')}
 Tone: {business.get('tone', 'professional')}
 Today's Date: {datetime.now().strftime('%B %d, %Y')}
-
+{holiday}
 Post type: {post_type}
 Make it specific to this business — no generic marketing fluff."""
 
@@ -95,6 +112,7 @@ Return ONLY valid JSON:
 async def generate_reel_content(business: dict, api_key: str) -> dict:
     post_type = random.choice(["promotional", "educational", "special_offer", "tip_of_the_week"])
 
+    holiday = _holiday_context()
     prompt = f"""Create a short video reel script for this business:
 
 Business: {business['name']}
@@ -105,7 +123,7 @@ Location: {business.get('location', 'N/A')}
 Target Audience: {business.get('target_audience', 'local customers')}
 Tone: {business.get('tone', 'professional')}
 Today's Date: {datetime.now().strftime('%B %d, %Y')}
-
+{holiday}
 Style: {post_type}
 Make it specific — no generic marketing fluff."""
 

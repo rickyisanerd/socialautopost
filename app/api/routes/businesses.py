@@ -4,14 +4,22 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from app.core.database import get_db
+from app.core.auth import get_current_user
 from app.models.models import Business, PlatformCredential, Post, PostDelivery
 from app.core.orchestrator import run_post_cycle
 
 router = APIRouter(prefix="/api/businesses", tags=["businesses"])
 
 
+def _guard(request: Request):
+    """Block unauthenticated access to all business API routes."""
+    if not get_current_user(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+
 @router.post("")
 async def create_business(
+    request: Request,
     name: str = Form(...),
     description: str = Form(...),
     industry: str = Form(...),
@@ -28,6 +36,7 @@ async def create_business(
     timezone: str = Form("America/Chicago"),
     db: AsyncSession = Depends(get_db),
 ):
+    _guard(request)
     biz = Business(
         name=name, description=description, industry=industry,
         location=location, phone=phone, website_url=website_url,
@@ -43,11 +52,13 @@ async def create_business(
 
 @router.post("/{business_id}/platforms")
 async def add_platform(
+    request: Request,
     business_id: int,
     platform: str = Form(...),
     credentials_json: str = Form(...),
     db: AsyncSession = Depends(get_db),
 ):
+    _guard(request)
     import json
     cred = PlatformCredential(
         business_id=business_id,
@@ -60,7 +71,8 @@ async def add_platform(
 
 
 @router.post("/{business_id}/post-now")
-async def trigger_post(business_id: int, db: AsyncSession = Depends(get_db)):
+async def trigger_post(request: Request, business_id: int, db: AsyncSession = Depends(get_db)):
+    _guard(request)
     result = await db.execute(select(Business).where(Business.id == business_id))
     biz = result.scalar_one_or_none()
     if not biz:
@@ -70,7 +82,8 @@ async def trigger_post(business_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{business_id}/toggle")
-async def toggle_business(business_id: int, db: AsyncSession = Depends(get_db)):
+async def toggle_business(request: Request, business_id: int, db: AsyncSession = Depends(get_db)):
+    _guard(request)
     result = await db.execute(select(Business).where(Business.id == business_id))
     biz = result.scalar_one_or_none()
     if not biz:
@@ -81,7 +94,8 @@ async def toggle_business(business_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/platforms/{platform_id}/delete")
-async def delete_platform(platform_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_platform(request: Request, platform_id: int, db: AsyncSession = Depends(get_db)):
+    _guard(request)
     result = await db.execute(select(PlatformCredential).where(PlatformCredential.id == platform_id))
     cred = result.scalar_one_or_none()
     if not cred:
