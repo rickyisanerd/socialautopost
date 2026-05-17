@@ -17,6 +17,18 @@ from app.core.notifications import send_post_notification
 log = logging.getLogger("socialautopost")
 
 
+def _public_image_url(image_path: str) -> str:
+    """Build a public URL for a generated image served by our app.
+
+    Images are stored in generated/images/ and served at /static/images/.
+    This gives Instagram a URL that doesn't depend on Facebook at all.
+    """
+    from pathlib import Path
+    filename = Path(image_path).name
+    base = settings.base_url.rstrip("/")
+    return f"{base}/static/images/{filename}"
+
+
 def _build_client(platform: str, creds: dict):
     match platform:
         case "facebook":
@@ -106,9 +118,9 @@ async def _process_business(db: AsyncSession, biz: Business):
     )
     creds = cred_result.scalars().all()
 
-    # Sort so Facebook posts first — we grab its CDN URL for Instagram
-    creds = sorted(creds, key=lambda c: 0 if c.platform == "facebook" else (2 if c.platform == "instagram" else 1))
-    fb_image_url = None
+    # Self-hosted image URL for Instagram — no Facebook dependency
+    self_hosted_url = _public_image_url(image_path)
+    log.info(f"Self-hosted image URL for Instagram: {self_hosted_url}")
     delivery_results = []
 
     for cred in creds:
@@ -125,17 +137,9 @@ async def _process_business(db: AsyncSession, biz: Business):
 
         try:
             if cred.platform == "instagram":
-                if fb_image_url:
-                    result = await client.post(content["text"], image_url=fb_image_url)
-                else:
-                    result = {"success": False, "post_id": "",
-                              "error": "No public image URL — Facebook must post first"}
+                result = await client.post(content["text"], image_url=self_hosted_url)
             else:
                 result = await client.post(content["text"], image_path=image_path)
-
-            if cred.platform == "facebook" and result.get("success") and result.get("image_url"):
-                fb_image_url = result["image_url"]
-                log.info(f"Got Facebook CDN URL for Instagram: {fb_image_url[:80]}...")
 
             if result["success"]:
                 delivery.status = "delivered"
@@ -226,39 +230,10 @@ async def _process_reel(db: AsyncSession, biz: Business):
     )
     creds = cred_result.scalars().all()
 
-    # Facebook first — we grab the CDN image URL for Instagram
-    creds = sorted(creds, key=lambda c: 0 if c.platform == "facebook" else (2 if c.platform == "instagram" else 1))
-    fb_image_url = None
+    # Self-hosted image URL for Instagram — no Facebook dependency
+    self_hosted_url = _public_image_url(image_path)
+    log.info(f"Self-hosted image URL for Instagram: {self_hosted_url}")
     delivery_results = []
-
-    # Upload the static image to Facebook (unpublished) to get a CDN URL for Instagram
-    fb_cred = next((c for c in creds if c.platform == "facebook"), None)
-    if fb_cred:
-        try:
-            fb_client = _build_client("facebook", fb_cred.credentials)
-            async with __import__("httpx").AsyncClient(timeout=60) as hc:
-                with open(image_path, "rb") as f:
-                    r = await hc.post(
-                        f"https://graph.facebook.com/v21.0/{fb_cred.credentials['page_id']}/photos",
-                        data={
-                            "access_token": fb_cred.credentials["access_token"],
-                            "published": "false",
-                        },
-                        files={"source": ("image.png", f, "image/png")},
-                    )
-                data = r.json()
-                if "id" in data:
-                    photo_id = data["id"]
-                    img_r = await hc.get(
-                        f"https://graph.facebook.com/v21.0/{photo_id}",
-                        params={"fields": "images", "access_token": fb_cred.credentials["access_token"]},
-                    )
-                    img_data = img_r.json()
-                    if "images" in img_data and img_data["images"]:
-                        fb_image_url = img_data["images"][0]["source"]
-                        log.info(f"Uploaded unpublished photo for Instagram CDN URL")
-        except Exception as e:
-            log.warning(f"Could not pre-upload image for Instagram: {e}")
 
     for cred in creds:
         delivery = PostDelivery(post_id=post.id, platform=cred.platform, status="pending")
@@ -276,11 +251,8 @@ async def _process_reel(db: AsyncSession, biz: Business):
             if cred.platform == "facebook":
                 result = await client.post_reel(caption, video_path)
             elif cred.platform == "instagram":
-                # Instagram Reels via API are unreliable — post the static ad image instead
-                if fb_image_url:
-                    result = await client.post(caption, image_url=fb_image_url)
-                else:
-                    result = {"success": False, "post_id": "", "error": "No public image URL for Instagram"}
+                # Post the static ad image — self-hosted URL, no Facebook dependency
+                result = await client.post(caption, image_url=self_hosted_url)
             elif cred.platform == "x":
                 # X/Twitter doesn't support reels — post static image instead
                 result = await client.post(caption, image_path=image_path)
