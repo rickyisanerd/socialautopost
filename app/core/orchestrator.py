@@ -72,6 +72,8 @@ async def _process_business(db: AsyncSession, biz: Business):
         "services": biz.services,
         "target_audience": biz.target_audience,
         "tone": biz.tone,
+        "phone": biz.phone or "",
+        "website": biz.website_url or "",
     }
 
     content = await generate_post_content(biz_dict, settings.anthropic_api_key)
@@ -82,6 +84,8 @@ async def _process_business(db: AsyncSession, biz: Business):
         business_name=biz.name,
         primary_color=biz.brand_color_primary,
         secondary_color=biz.brand_color_secondary,
+        phone=biz.phone or "",
+        website=biz.website_url or "",
     )
 
     post = Post(
@@ -174,6 +178,8 @@ async def _process_reel(db: AsyncSession, biz: Business):
         "services": biz.services,
         "target_audience": biz.target_audience,
         "tone": biz.tone,
+        "phone": biz.phone or "",
+        "website": biz.website_url or "",
     }
 
     reel_content = await generate_reel_content(biz_dict, settings.anthropic_api_key)
@@ -185,6 +191,8 @@ async def _process_reel(db: AsyncSession, biz: Business):
         business_name=biz.name,
         primary_color=biz.brand_color_primary,
         secondary_color=biz.brand_color_secondary,
+        phone=biz.phone or "",
+        website=biz.website_url or "",
     )
 
     # Also generate a static image for platforms that don't support video (X/Twitter)
@@ -194,6 +202,8 @@ async def _process_reel(db: AsyncSession, biz: Business):
         business_name=biz.name,
         primary_color=biz.brand_color_primary,
         secondary_color=biz.brand_color_secondary,
+        phone=biz.phone or "",
+        website=biz.website_url or "",
     )
 
     caption = reel_content.get("caption", reel_content["headline"])
@@ -216,10 +226,39 @@ async def _process_reel(db: AsyncSession, biz: Business):
     )
     creds = cred_result.scalars().all()
 
-    # Facebook first — we need the video URL from FB for Instagram Reels
+    # Facebook first — we grab the CDN image URL for Instagram
     creds = sorted(creds, key=lambda c: 0 if c.platform == "facebook" else (2 if c.platform == "instagram" else 1))
-    fb_video_url = None
+    fb_image_url = None
     delivery_results = []
+
+    # Upload the static image to Facebook (unpublished) to get a CDN URL for Instagram
+    fb_cred = next((c for c in creds if c.platform == "facebook"), None)
+    if fb_cred:
+        try:
+            fb_client = _build_client("facebook", fb_cred.credentials)
+            async with __import__("httpx").AsyncClient(timeout=60) as hc:
+                with open(image_path, "rb") as f:
+                    r = await hc.post(
+                        f"https://graph.facebook.com/v21.0/{fb_cred.credentials['page_id']}/photos",
+                        data={
+                            "access_token": fb_cred.credentials["access_token"],
+                            "published": "false",
+                        },
+                        files={"source": ("image.png", f, "image/png")},
+                    )
+                data = r.json()
+                if "id" in data:
+                    photo_id = data["id"]
+                    img_r = await hc.get(
+                        f"https://graph.facebook.com/v21.0/{photo_id}",
+                        params={"fields": "images", "access_token": fb_cred.credentials["access_token"]},
+                    )
+                    img_data = img_r.json()
+                    if "images" in img_data and img_data["images"]:
+                        fb_image_url = img_data["images"][0]["source"]
+                        log.info(f"Uploaded unpublished photo for Instagram CDN URL")
+        except Exception as e:
+            log.warning(f"Could not pre-upload image for Instagram: {e}")
 
     for cred in creds:
         delivery = PostDelivery(post_id=post.id, platform=cred.platform, status="pending")
@@ -236,26 +275,12 @@ async def _process_reel(db: AsyncSession, biz: Business):
         try:
             if cred.platform == "facebook":
                 result = await client.post_reel(caption, video_path)
-                if result.get("success") and result.get("video_url"):
-                    fb_video_url = result["video_url"]
-                    log.info(f"Facebook Reel posted, URL: {fb_video_url}")
             elif cred.platform == "instagram":
-                if fb_video_url:
-                    result = await client.post_reel(caption, fb_video_url)
+                # Instagram Reels via API are unreliable — post the static ad image instead
+                if fb_image_url:
+                    result = await client.post(caption, image_url=fb_image_url)
                 else:
-                    # Fall back to image post if no video URL available
-                    log.warning("No FB video URL for Instagram reel, falling back to image post")
-                    # Try to get an image URL via a quick FB image upload
-                    fb_cred = next((c for c in creds if c.platform == "facebook"), None)
-                    if fb_cred:
-                        fb_client = _build_client("facebook", fb_cred.credentials)
-                        img_result = await fb_client.post(caption, image_path=image_path)
-                        if img_result.get("image_url"):
-                            result = await client.post(caption, image_url=img_result["image_url"])
-                        else:
-                            result = {"success": False, "post_id": "", "error": "No public URL for Instagram"}
-                    else:
-                        result = {"success": False, "post_id": "", "error": "No FB credentials for image hosting"}
+                    result = {"success": False, "post_id": "", "error": "No public image URL for Instagram"}
             elif cred.platform == "x":
                 # X/Twitter doesn't support reels — post static image instead
                 result = await client.post(caption, image_path=image_path)

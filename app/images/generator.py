@@ -52,6 +52,8 @@ def generate_post_image(
     business_name: str,
     primary_color: str = "#1a73e8",
     secondary_color: str = "#ffffff",
+    phone: str = "",
+    website: str = "",
 ) -> str:
     primary_rgb = _hex_to_rgb(primary_color)
     secondary_rgb = _hex_to_rgb(secondary_color)
@@ -62,8 +64,10 @@ def generate_post_image(
     # Decorative accent bar at top
     draw.rectangle([0, 0, WIDTH, 8], fill=secondary_rgb)
 
-    # Bottom band for business name
-    band_y = HEIGHT - 120
+    # Bottom band — taller to fit phone/website
+    contact_lines = [l for l in [phone, website] if l]
+    band_height = 120 + len(contact_lines) * 28
+    band_y = HEIGHT - band_height
     band_color = tuple(max(0, c - 30) for c in primary_rgb)
     draw.rectangle([0, band_y, WIDTH, HEIGHT], fill=band_color)
     draw.rectangle([0, band_y, WIDTH, band_y + 3], fill=secondary_rgb)
@@ -102,8 +106,17 @@ def generate_post_image(
     bbox = draw.textbbox((0, 0), business_name, font=name_font)
     name_width = bbox[2] - bbox[0]
     name_x = (WIDTH - name_width) // 2
-    name_y = band_y + 45
+    name_y = band_y + 20
     draw.text((name_x, name_y), business_name, fill=secondary_rgb, font=name_font)
+
+    # Phone and website below business name
+    contact_font = _get_font(22)
+    contact_y = name_y + 40
+    for line in contact_lines:
+        bbox = draw.textbbox((0, 0), line, font=contact_font)
+        cw = bbox[2] - bbox[0]
+        draw.text(((WIDTH - cw) // 2, contact_y), line, fill=secondary_rgb, font=contact_font)
+        contact_y += 28
 
     # Decorative corner accents
     accent_len = 60

@@ -63,6 +63,8 @@ def _create_branded_frame(
     primary_color: str,
     secondary_color: str,
     font_size: int = 72,
+    phone: str = "",
+    website: str = "",
 ) -> np.ndarray:
     """Create a single branded frame as a numpy array (for moviepy)."""
     primary_rgb = _hex_to_rgb(primary_color)
@@ -74,8 +76,10 @@ def _create_branded_frame(
     # Top accent bar
     draw.rectangle([0, 0, REEL_W, 8], fill=secondary_rgb)
 
-    # Bottom band for business name
-    band_y = REEL_H - 200
+    # Bottom band for business name + contact info
+    contact_lines = [l for l in [phone, website] if l]
+    band_height = 200 + len(contact_lines) * 36
+    band_y = REEL_H - band_height
     band_color = tuple(max(0, c - 30) for c in primary_rgb)
     draw.rectangle([0, band_y, REEL_W, REEL_H], fill=band_color)
     draw.rectangle([0, band_y, REEL_W, band_y + 3], fill=secondary_rgb)
@@ -139,7 +143,22 @@ def _create_branded_frame(
         name_font = ImageFont.load_default()
     bbox = draw.textbbox((0, 0), business_name, font=name_font)
     name_w = bbox[2] - bbox[0]
-    draw.text(((REEL_W - name_w) // 2, band_y + 80), business_name, fill=secondary_rgb, font=name_font)
+    name_y = band_y + 40
+    draw.text(((REEL_W - name_w) // 2, name_y), business_name, fill=secondary_rgb, font=name_font)
+
+    # Phone and website below business name
+    if contact_lines:
+        contact_font_path = _get_font_path(bold=False)
+        if contact_font_path:
+            contact_font = ImageFont.truetype(contact_font_path, 28)
+        else:
+            contact_font = ImageFont.load_default()
+        contact_y = name_y + 50
+        for line in contact_lines:
+            bbox = draw.textbbox((0, 0), line, font=contact_font)
+            cw = bbox[2] - bbox[0]
+            draw.text(((REEL_W - cw) // 2, contact_y), line, fill=secondary_rgb, font=contact_font)
+            contact_y += 36
 
     return np.array(img)
 
@@ -172,6 +191,8 @@ def generate_reel(
     business_name: str,
     primary_color: str = "#1a73e8",
     secondary_color: str = "#ffffff",
+    phone: str = "",
+    website: str = "",
 ) -> str:
     """
     Generate a short video reel with 3 scenes:
@@ -184,17 +205,17 @@ def generate_reel(
     log.info(f"Generating video reel for {business_name}")
 
     # Scene 1: Headline
-    frame1 = _create_branded_frame(headline, business_name, primary_color, secondary_color, font_size=80)
+    frame1 = _create_branded_frame(headline, business_name, primary_color, secondary_color, font_size=80, phone=phone, website=website)
     scene1 = ImageClip(frame1, duration=4.0)
     scene1 = _zoom_in_effect(scene1, zoom_ratio=0.06)
 
     # Scene 2: Tagline
-    frame2 = _create_branded_frame(tagline, business_name, primary_color, secondary_color, font_size=64)
+    frame2 = _create_branded_frame(tagline, business_name, primary_color, secondary_color, font_size=64, phone=phone, website=website)
     scene2 = ImageClip(frame2, duration=4.0)
     scene2 = _zoom_in_effect(scene2, zoom_ratio=0.06)
 
     # Scene 3: CTA
-    frame3 = _create_branded_frame(cta_text, business_name, primary_color, secondary_color, font_size=72)
+    frame3 = _create_branded_frame(cta_text, business_name, primary_color, secondary_color, font_size=72, phone=phone, website=website)
     scene3 = ImageClip(frame3, duration=4.0)
     scene3 = _zoom_in_effect(scene3, zoom_ratio=0.06)
 

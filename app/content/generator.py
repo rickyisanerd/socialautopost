@@ -61,9 +61,12 @@ Services: {business.get('services', 'N/A')}
 Location: {business.get('location', 'N/A')}
 Target Audience: {business.get('target_audience', 'local customers')}
 Tone: {business.get('tone', 'professional')}
+Phone: {business.get('phone', '')}
+Website: {business.get('website', '')}
 Today's Date: {datetime.now().strftime('%B %d, %Y')}
 {holiday}
 Post type: {post_type}
+If a phone number or website is provided, naturally work it into the call to action.
 Make it specific to this business — no generic marketing fluff."""
 
 
@@ -122,9 +125,12 @@ Services: {business.get('services', 'N/A')}
 Location: {business.get('location', 'N/A')}
 Target Audience: {business.get('target_audience', 'local customers')}
 Tone: {business.get('tone', 'professional')}
+Phone: {business.get('phone', '')}
+Website: {business.get('website', '')}
 Today's Date: {datetime.now().strftime('%B %d, %Y')}
 {holiday}
 Style: {post_type}
+If a phone number or website is provided, work the phone number into the CTA scene text.
 Make it specific — no generic marketing fluff."""
 
     client = anthropic.AsyncAnthropic(api_key=api_key)

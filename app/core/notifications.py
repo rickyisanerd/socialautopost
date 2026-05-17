@@ -10,21 +10,6 @@ log = logging.getLogger("socialautopost")
 RESEND_API_URL = "https://api.resend.com/emails"
 
 
-def _load_image_attachment(path: str) -> dict | None:
-    """Read an image file and return a Resend attachment dict."""
-    try:
-        p = Path(path)
-        if p.exists() and p.stat().st_size < 5_000_000:  # Skip files > 5MB
-            b64 = base64.b64encode(p.read_bytes()).decode()
-            return {
-                "filename": p.name,
-                "content": b64,
-                "type": f"image/{p.suffix.lower().lstrip('.')}",
-            }
-    except Exception as e:
-        log.warning(f"Could not load image for email: {e}")
-    return None
-
 
 def send_post_notification(
     business_name: str,
@@ -59,21 +44,24 @@ def send_post_notification(
     status_label = "All Platforms Delivered" if all_delivered else "Partial Failure" if any_failed else "Completed"
     status_color = "#2ea043" if all_delivered else "#da3633"
 
-    # Inline the generated image if available (as CID attachment)
+    # Inline the generated image if available (as base64 data URI)
     image_html = ""
-    attachment = None
     if image_path:
         p = Path(image_path)
         if p.exists():
             suffix = p.suffix.lower().lstrip(".")
             if suffix in ("png", "jpg", "jpeg", "gif"):
-                attachment = _load_image_attachment(image_path)
-                if attachment:
-                    image_html = """
-                    <div style="margin:20px 0;text-align:center;">
-                      <p style="color:#8b949e;font-size:13px;margin-bottom:8px;">Generated Ad:</p>
-                      <img src="cid:postimage" style="max-width:500px;width:100%;border-radius:8px;border:1px solid #30363d;" />
-                    </div>"""
+                try:
+                    if p.stat().st_size < 5_000_000:
+                        b64 = base64.b64encode(p.read_bytes()).decode()
+                        mime = "jpeg" if suffix == "jpg" else suffix
+                        image_html = f"""
+                        <div style="margin:20px 0;text-align:center;">
+                          <p style="color:#8b949e;font-size:13px;margin-bottom:8px;">Generated Ad:</p>
+                          <img src="data:image/{mime};base64,{b64}" style="max-width:500px;width:100%;border-radius:8px;border:1px solid #30363d;" />
+                        </div>"""
+                except Exception as e:
+                    log.warning(f"Could not embed image in email: {e}")
             elif suffix in ("mp4", "mov"):
                 image_html = f"""
                 <div style="margin:20px 0;text-align:center;">
@@ -129,11 +117,6 @@ def send_post_notification(
         "subject": subject,
         "html": html,
     }
-
-    # Attach the image if available
-    if attachment:
-        attachment["id"] = "postimage"  # CID reference for inline display
-        payload["attachments"] = [attachment]
 
     headers = {
         "Authorization": f"Bearer {settings.resend_api_key}",
