@@ -22,16 +22,114 @@
 
 <!-- Business Info -->
 <div class="card">
-    <h2>Business Info</h2>
-    <p style="font-size: 14px; margin-bottom: 8px;">{{ business.description }}</p>
-    <p style="font-size: 13px; color: #8b949e;">Services: {{ business.services or 'Not specified' }}</p>
-    <p style="font-size: 13px; color: #8b949e;">Audience: {{ business.target_audience or 'Not specified' }}</p>
-    <p style="font-size: 13px; color: #8b949e;">Tone: {{ business.tone }} &middot; Schedule: {{ business.posting_days }} at {{ business.posting_time }} {{ business.timezone }}</p>
-    <div style="margin-top: 8px;">
-        <span style="display:inline-block; width:20px; height:20px; background:{{ business.brand_color_primary }}; border-radius:4px; vertical-align:middle;"></span>
-        <span style="display:inline-block; width:20px; height:20px; background:{{ business.brand_color_secondary }}; border:1px solid #30363d; border-radius:4px; vertical-align:middle; margin-left:4px;"></span>
-        <span style="font-size: 12px; color: #8b949e; margin-left: 8px;">Brand colors</span>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Business Info</h2>
+        <button class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;" onclick="document.getElementById('edit-form').style.display = document.getElementById('edit-form').style.display === 'none' ? 'block' : 'none'; document.getElementById('info-display').style.display = document.getElementById('info-display').style.display === 'none' ? 'block' : 'none';">Edit</button>
     </div>
+
+    <div id="info-display">
+        <p style="font-size: 14px; margin-bottom: 8px;">{{ business.description }}</p>
+        <p style="font-size: 13px; color: #8b949e;">Services: {{ business.services or 'Not specified' }}</p>
+        <p style="font-size: 13px; color: #8b949e;">Audience: {{ business.target_audience or 'Not specified' }}</p>
+        {% if business.phone %}
+        <p style="font-size: 13px; color: #8b949e;">Phone: {{ business.phone }}</p>
+        {% endif %}
+        {% if business.website_url %}
+        <p style="font-size: 13px; color: #8b949e;">Website: <a href="{{ business.website_url }}" target="_blank" style="color: #58a6ff;">{{ business.website_url }}</a></p>
+        {% endif %}
+        <p style="font-size: 13px; color: #8b949e;">Tone: {{ business.tone }} &middot; Schedule: {{ business.posting_days }} at {{ business.posting_time }} {{ business.timezone }}</p>
+        <div style="margin-top: 8px;">
+            <span style="display:inline-block; width:20px; height:20px; background:{{ business.brand_color_primary }}; border-radius:4px; vertical-align:middle;"></span>
+            <span style="display:inline-block; width:20px; height:20px; background:{{ business.brand_color_secondary }}; border:1px solid #30363d; border-radius:4px; vertical-align:middle; margin-left:4px;"></span>
+            <span style="font-size: 12px; color: #8b949e; margin-left: 8px;">Brand colors</span>
+        </div>
+    </div>
+
+    <form id="edit-form" method="POST" action="/api/businesses/{{ business.id }}/edit" style="display: none; margin-top: 12px;">
+        <div class="form-row">
+            <div>
+                <label>Business Name *</label>
+                <input type="text" name="name" required value="{{ business.name }}">
+            </div>
+            <div>
+                <label>Industry *</label>
+                <input type="text" name="industry" required value="{{ business.industry }}">
+            </div>
+        </div>
+
+        <label>Description *</label>
+        <textarea name="description" rows="3" required>{{ business.description }}</textarea>
+
+        <label>Services</label>
+        <textarea name="services" rows="2">{{ business.services or '' }}</textarea>
+
+        <div class="form-row">
+            <div>
+                <label>Location</label>
+                <input type="text" name="location" value="{{ business.location or '' }}">
+            </div>
+            <div>
+                <label>Phone</label>
+                <input type="text" name="phone" value="{{ business.phone or '' }}">
+            </div>
+        </div>
+
+        <label>Website URL</label>
+        <input type="url" name="website_url" value="{{ business.website_url or '' }}" placeholder="https://example.com">
+
+        <label>Target Audience</label>
+        <input type="text" name="target_audience" value="{{ business.target_audience or '' }}">
+
+        <div class="form-row">
+            <div>
+                <label>Brand Tone</label>
+                <select name="tone">
+                    <option value="professional" {{ 'selected' if business.tone == 'professional' }}>Professional</option>
+                    <option value="friendly" {{ 'selected' if business.tone == 'friendly' }}>Friendly & Casual</option>
+                    <option value="friendly and professional" {{ 'selected' if business.tone == 'friendly and professional' }}>Friendly & Professional</option>
+                    <option value="humorous" {{ 'selected' if business.tone == 'humorous' }}>Humorous</option>
+                    <option value="authoritative" {{ 'selected' if business.tone == 'authoritative' }}>Authoritative / Expert</option>
+                    <option value="inspirational" {{ 'selected' if business.tone == 'inspirational' }}>Inspirational</option>
+                </select>
+            </div>
+            <div>
+                <label>Timezone</label>
+                <select name="timezone">
+                    <option value="America/Chicago" {{ 'selected' if business.timezone == 'America/Chicago' }}>Central (Chicago)</option>
+                    <option value="America/New_York" {{ 'selected' if business.timezone == 'America/New_York' }}>Eastern (New York)</option>
+                    <option value="America/Denver" {{ 'selected' if business.timezone == 'America/Denver' }}>Mountain (Denver)</option>
+                    <option value="America/Los_Angeles" {{ 'selected' if business.timezone == 'America/Los_Angeles' }}>Pacific (Los Angeles)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label>Primary Brand Color</label>
+                <input type="color" name="brand_color_primary" value="{{ business.brand_color_primary }}">
+            </div>
+            <div>
+                <label>Secondary Brand Color</label>
+                <input type="color" name="brand_color_secondary" value="{{ business.brand_color_secondary }}">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label>Posting Days</label>
+                <input type="text" name="posting_days" value="{{ business.posting_days }}">
+            </div>
+            <div>
+                <label>Posting Time</label>
+                <input type="time" name="posting_time" value="{{ business.posting_time }}">
+            </div>
+        </div>
+
+        <div style="margin-top: 16px; display: flex; gap: 8px;">
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('edit-form').style.display='none'; document.getElementById('info-display').style.display='block';">Cancel</button>
+        </div>
+    </form>
 </div>
 
 <!-- Connected Platforms -->
