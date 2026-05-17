@@ -72,6 +72,17 @@ async def run_post_cycle(business_id: int | None = None, force_reel: bool = Fals
                 log.error(f"Failed to process business {biz.name}: {e}")
 
 
+async def _get_recent_post_texts(db: AsyncSession, business_id: int, limit: int = 10) -> list[str]:
+    """Fetch recent post texts so the AI can avoid repeating topics."""
+    result = await db.execute(
+        select(Post.content_text)
+        .where(Post.business_id == business_id)
+        .order_by(Post.created_at.desc())
+        .limit(limit)
+    )
+    return [row[0] for row in result.fetchall()]
+
+
 async def _process_business(db: AsyncSession, biz: Business):
     """Standard image post flow."""
     log.info(f"Generating image post for {biz.name}")
@@ -88,7 +99,8 @@ async def _process_business(db: AsyncSession, biz: Business):
         "website": biz.website_url or "",
     }
 
-    content = await generate_post_content(biz_dict, settings.anthropic_api_key)
+    recent_posts = await _get_recent_post_texts(db, biz.id)
+    content = await generate_post_content(biz_dict, settings.anthropic_api_key, recent_posts=recent_posts)
 
     image_path = generate_post_image(
         headline=content["headline"],
@@ -186,7 +198,8 @@ async def _process_reel(db: AsyncSession, biz: Business):
         "website": biz.website_url or "",
     }
 
-    reel_content = await generate_reel_content(biz_dict, settings.anthropic_api_key)
+    recent_posts = await _get_recent_post_texts(db, biz.id)
+    reel_content = await generate_reel_content(biz_dict, settings.anthropic_api_key, recent_posts=recent_posts)
 
     video_path = generate_reel(
         headline=reel_content["headline"],
