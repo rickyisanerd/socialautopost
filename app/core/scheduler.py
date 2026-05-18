@@ -2,8 +2,10 @@ import asyncio
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from app.core.config import settings
 from app.core.orchestrator import run_post_cycle
+from app.core.metrics import collect_metrics
 
 log = logging.getLogger("socialautopost")
 
@@ -36,8 +38,18 @@ def start_scheduler():
         name="Auto Post Cycle",
     )
 
+    # Metrics collection — every 6 hours
+    scheduler.add_job(
+        _collect_metrics,
+        trigger=IntervalTrigger(hours=6),
+        id="metrics_collection",
+        replace_existing=True,
+        name="Metrics Collection",
+    )
+
     scheduler.start()
     log.info(f"Scheduler started: posting on {cron_days} at {settings.posting_time} {settings.timezone}")
+    log.info("Metrics collection scheduled every 6 hours")
 
 
 async def _run_cycle():
@@ -46,3 +58,11 @@ async def _run_cycle():
         await run_post_cycle()
     except Exception as e:
         log.error(f"Scheduled post cycle failed: {e}")
+
+
+async def _collect_metrics():
+    log.info("Scheduled metrics collection starting")
+    try:
+        await collect_metrics()
+    except Exception as e:
+        log.error(f"Scheduled metrics collection failed: {e}")

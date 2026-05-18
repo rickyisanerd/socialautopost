@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.auth import get_current_user
-from app.models.models import Business, PlatformCredential, Post, PostDelivery
+from app.models.models import Business, PlatformCredential, Post, PostDelivery, PostMetrics
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 templates = Jinja2Templates(directory="app/templates")
@@ -49,7 +49,7 @@ async def business_detail(request: Request, business_id: int, db: AsyncSession =
         .where(Business.id == business_id)
         .options(
             selectinload(Business.platforms),
-            selectinload(Business.posts).selectinload(Post.deliveries),
+            selectinload(Business.posts).selectinload(Post.deliveries).selectinload(PostDelivery.metrics),
         )
     )
     biz = result.scalar_one_or_none()

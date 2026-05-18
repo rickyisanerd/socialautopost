@@ -57,6 +57,59 @@ class FacebookClient(PlatformClient):
                 return result
             return {"success": False, "post_id": "", "error": data.get("error", {}).get("message", str(data))}
 
+    async def get_metrics(self, post_id: str) -> dict | None:
+        """Fetch Facebook post insights: impressions, reach, reactions, comments, shares, clicks."""
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                # Get basic engagement counts
+                r = await client.get(
+                    f"{GRAPH_API}/{post_id}",
+                    params={
+                        "fields": "likes.summary(true),comments.summary(true),shares",
+                        "access_token": self.access_token,
+                    },
+                )
+                data = r.json()
+                likes = data.get("likes", {}).get("summary", {}).get("total_count", 0)
+                comments = data.get("comments", {}).get("summary", {}).get("total_count", 0)
+                shares = data.get("shares", {}).get("count", 0)
+
+                # Get post insights for impressions, reach, clicks
+                impressions = 0
+                reach = 0
+                clicks = 0
+                r2 = await client.get(
+                    f"{GRAPH_API}/{post_id}/insights",
+                    params={
+                        "metric": "post_impressions,post_impressions_unique,post_clicks",
+                        "access_token": self.access_token,
+                    },
+                )
+                insights = r2.json()
+                for item in insights.get("data", []):
+                    val = item.get("values", [{}])[0].get("value", 0)
+                    if item["name"] == "post_impressions":
+                        impressions = val
+                    elif item["name"] == "post_impressions_unique":
+                        reach = val
+                    elif item["name"] == "post_clicks":
+                        clicks = val
+
+                engagement = likes + comments + shares + clicks
+                return {
+                    "impressions": impressions,
+                    "reach": reach,
+                    "likes": likes,
+                    "comments": comments,
+                    "shares": shares,
+                    "saves": 0,
+                    "clicks": clicks,
+                    "engagement": engagement,
+                }
+        except Exception as e:
+            log.warning(f"Failed to fetch Facebook metrics for {post_id}: {e}")
+            return None
+
     async def post_reel(self, text: str, video_path: str) -> dict:
         """Upload a video as a Facebook Reel via resumable upload."""
         async with httpx.AsyncClient(timeout=300) as client:

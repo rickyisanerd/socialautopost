@@ -12,3 +12,10 @@ class PlatformClient(ABC):
     @abstractmethod
     async def verify_credentials(self) -> bool:
         pass
+
+    async def get_metrics(self, post_id: str) -> dict | None:
+        """Fetch engagement metrics for a post. Returns dict of metric values or None on failure.
+
+        Expected keys: impressions, reach, likes, comments, shares, saves, clicks, engagement
+        """
+        return None

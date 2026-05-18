@@ -70,3 +70,22 @@ class PostDelivery(Base):
     delivered_at = Column(DateTime(timezone=True), nullable=True)
 
     post = relationship("Post", back_populates="deliveries")
+    metrics = relationship("PostMetrics", back_populates="delivery", uselist=False, cascade="all, delete-orphan")
+
+
+class PostMetrics(Base):
+    __tablename__ = "post_metrics"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    delivery_id = Column(Integer, ForeignKey("post_deliveries.id"), nullable=False, unique=True)
+    impressions = Column(Integer, default=0)
+    reach = Column(Integer, default=0)
+    likes = Column(Integer, default=0)
+    comments = Column(Integer, default=0)
+    shares = Column(Integer, default=0)
+    saves = Column(Integer, default=0)
+    clicks = Column(Integer, default=0)
+    engagement = Column(Integer, default=0)  # total interactions
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    delivery = relationship("PostDelivery", back_populates="metrics")

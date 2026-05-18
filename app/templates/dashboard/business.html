@@ -10,6 +10,9 @@
         <form method="POST" action="/api/businesses/{{ business.id }}/post-now">
             <button type="submit" class="btn btn-blue">Post Now</button>
         </form>
+        <form method="POST" action="/api/businesses/{{ business.id }}/collect-metrics">
+            <button type="submit" class="btn btn-secondary">Refresh Metrics</button>
+        </form>
         <form method="POST" action="/api/businesses/{{ business.id }}/toggle">
             {% if business.is_active %}
             <button type="submit" class="btn btn-secondary">Pause</button>
@@ -178,23 +181,95 @@
     </details>
 </div>
 
+<!-- Engagement Summary -->
+{% set ns = namespace(total_impressions=0, total_reach=0, total_likes=0, total_comments=0, total_shares=0, total_clicks=0, total_engagement=0, has_metrics=false) %}
+{% for post in posts %}
+{% for d in post.deliveries %}
+{% if d.metrics %}
+{% set ns.has_metrics = true %}
+{% set ns.total_impressions = ns.total_impressions + d.metrics.impressions %}
+{% set ns.total_reach = ns.total_reach + d.metrics.reach %}
+{% set ns.total_likes = ns.total_likes + d.metrics.likes %}
+{% set ns.total_comments = ns.total_comments + d.metrics.comments %}
+{% set ns.total_shares = ns.total_shares + d.metrics.shares %}
+{% set ns.total_clicks = ns.total_clicks + d.metrics.clicks %}
+{% set ns.total_engagement = ns.total_engagement + d.metrics.engagement %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+
+{% if ns.has_metrics %}
+<div class="card">
+    <h2>Engagement Overview</h2>
+    <p style="font-size: 12px; color: #8b949e; margin-bottom: 12px;">Last 30 days across all platforms &middot; Updated every 6 hours</p>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: #58a6ff;">{{ "{:,}".format(ns.total_impressions) }}</div>
+            <div style="font-size: 12px; color: #8b949e;">Impressions</div>
+        </div>
+        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: #58a6ff;">{{ "{:,}".format(ns.total_reach) }}</div>
+            <div style="font-size: 12px; color: #8b949e;">Reach</div>
+        </div>
+        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: #58a6ff;">{{ "{:,}".format(ns.total_engagement) }}</div>
+            <div style="font-size: 12px; color: #8b949e;">Engagements</div>
+        </div>
+        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: #58a6ff;">{{ "{:,}".format(ns.total_clicks) }}</div>
+            <div style="font-size: 12px; color: #8b949e;">Clicks</div>
+        </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px;">
+        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 20px; font-weight: bold; color: #c9d1d9;">{{ "{:,}".format(ns.total_likes) }}</div>
+            <div style="font-size: 12px; color: #8b949e;">Likes</div>
+        </div>
+        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 20px; font-weight: bold; color: #c9d1d9;">{{ "{:,}".format(ns.total_comments) }}</div>
+            <div style="font-size: 12px; color: #8b949e;">Comments</div>
+        </div>
+        <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px; text-align: center;">
+            <div style="font-size: 20px; font-weight: bold; color: #c9d1d9;">{{ "{:,}".format(ns.total_shares) }}</div>
+            <div style="font-size: 12px; color: #8b949e;">Shares</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Recent Posts -->
 <div class="card">
     <h2>Recent Posts</h2>
     {% if posts %}
     <table>
-        <tr><th>Date</th><th>Type</th><th>Content</th><th>Platforms</th></tr>
+        <tr><th>Date</th><th>Type</th><th>Content</th><th>Platforms</th><th style="text-align:right;">Engagement</th></tr>
         {% for post in posts %}
         <tr>
             <td style="white-space: nowrap; font-size: 13px;">{{ post.created_at.strftime('%b %d, %Y %H:%M') }}</td>
             <td><span class="badge badge-yellow">{{ post.post_type }}</span></td>
-            <td style="max-width: 400px; font-size: 13px; overflow: hidden; text-overflow: ellipsis;">{{ post.content_text[:120] }}{% if post.content_text|length > 120 %}...{% endif %}</td>
+            <td style="max-width: 350px; font-size: 13px; overflow: hidden; text-overflow: ellipsis;">{{ post.content_text[:100] }}{% if post.content_text|length > 100 %}...{% endif %}</td>
             <td>
                 {% for d in post.deliveries %}
                 <span class="platform-tag platform-{{ d.platform }}" title="{{ d.error_message if d.status == 'failed' else '' }}">
                     {{ d.platform }} {% if d.status == 'delivered' %}&#10003;{% elif d.status == 'failed' %}&#10007;{% else %}&#8987;{% endif %}
                 </span>
                 {% endfor %}
+            </td>
+            <td style="text-align: right; font-size: 12px; white-space: nowrap;">
+                {% set pns = namespace(imp=0, eng=0, likes=0) %}
+                {% for d in post.deliveries %}
+                {% if d.metrics %}
+                {% set pns.imp = pns.imp + d.metrics.impressions %}
+                {% set pns.eng = pns.eng + d.metrics.engagement %}
+                {% set pns.likes = pns.likes + d.metrics.likes %}
+                {% endif %}
+                {% endfor %}
+                {% if pns.imp > 0 or pns.eng > 0 %}
+                <span style="color: #8b949e;">{{ "{:,}".format(pns.imp) }} views</span><br>
+                <span style="color: #58a6ff;">{{ pns.likes }} likes &middot; {{ pns.eng }} total</span>
+                {% else %}
+                <span style="color: #484f58;">--</span>
+                {% endif %}
             </td>
         </tr>
         {% endfor %}

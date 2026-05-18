@@ -42,6 +42,61 @@ class InstagramClient(PlatformClient):
             await asyncio.sleep(3)
         return False
 
+    async def get_metrics(self, post_id: str) -> dict | None:
+        """Fetch Instagram media insights: impressions, reach, likes, comments, saves."""
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                # Get basic fields
+                r = await client.get(
+                    f"{GRAPH_API}/{post_id}",
+                    params={
+                        "fields": "like_count,comments_count",
+                        "access_token": self.access_token,
+                    },
+                )
+                data = r.json()
+                likes = data.get("like_count", 0)
+                comments = data.get("comments_count", 0)
+
+                # Get insights
+                impressions = 0
+                reach = 0
+                saves = 0
+                shares = 0
+                r2 = await client.get(
+                    f"{GRAPH_API}/{post_id}/insights",
+                    params={
+                        "metric": "impressions,reach,saved,shares",
+                        "access_token": self.access_token,
+                    },
+                )
+                insights = r2.json()
+                for item in insights.get("data", []):
+                    val = item.get("values", [{}])[0].get("value", 0)
+                    if item["name"] == "impressions":
+                        impressions = val
+                    elif item["name"] == "reach":
+                        reach = val
+                    elif item["name"] == "saved":
+                        saves = val
+                    elif item["name"] == "shares":
+                        shares = val
+
+                engagement = likes + comments + saves + shares
+                return {
+                    "impressions": impressions,
+                    "reach": reach,
+                    "likes": likes,
+                    "comments": comments,
+                    "shares": shares,
+                    "saves": saves,
+                    "clicks": 0,
+                    "engagement": engagement,
+                }
+        except Exception as e:
+            log.warning(f"Failed to fetch Instagram metrics for {post_id}: {e}")
+            return None
+
     async def post(self, text: str, image_url: str | None = None) -> dict:
         if not image_url:
             return {"success": False, "post_id": "", "error": "Instagram requires an image URL"}
