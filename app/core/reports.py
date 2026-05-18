@@ -11,7 +11,8 @@ from app.core.config import settings
 log = logging.getLogger("socialautopost")
 
 RESEND_API_URL = "https://api.resend.com/emails"
-REPORT_EMAIL = "rickysautomations@gmail.com"
+# Uses notification_email from settings (defaults to NOTIFICATION_EMAIL env var)
+# To send to rickysautomations@gmail.com, verify a custom domain on Resend first
 
 
 def _fmt(n: int) -> str:
@@ -369,7 +370,7 @@ async def send_daily_reports():
 
                 payload = {
                     "from": from_email,
-                    "to": [REPORT_EMAIL],
+                    "to": [settings.notification_email],
                     "subject": subject,
                     "html": html,
                 }
@@ -381,7 +382,7 @@ async def send_daily_reports():
 
                 resp = httpx.post(RESEND_API_URL, json=payload, headers=headers, timeout=30)
                 if resp.status_code in (200, 201):
-                    log.info(f"Daily report sent for {biz.name} to {REPORT_EMAIL}")
+                    log.info(f"Daily report sent for {biz.name} to {settings.notification_email}")
                 else:
                     log.error(f"Daily report failed for {biz.name}: {resp.status_code} {resp.text}")
 
