@@ -117,10 +117,8 @@ class FacebookClient(PlatformClient):
                         break  # Got data, stop trying
 
                 engagement = likes + comments + shares + clicks
-                # Only return metrics if we got at least something
                 if engagement == 0 and impressions == 0 and reach == 0:
-                    log.info(f"FB metrics all zero for {post_id} — may lack pages_read_engagement permission")
-                    return None
+                    log.debug(f"FB metrics all zero for {post_id} — post may be new")
 
                 return {
                     "impressions": impressions,
