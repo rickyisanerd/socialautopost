@@ -13,6 +13,9 @@
         <form method="POST" action="/api/businesses/{{ business.id }}/collect-metrics">
             <button type="submit" class="btn btn-secondary">Refresh Metrics</button>
         </form>
+        <form method="POST" action="/api/businesses/{{ business.id }}/send-report">
+            <button type="submit" class="btn btn-secondary">Email Report</button>
+        </form>
         <form method="POST" action="/api/businesses/{{ business.id }}/toggle">
             {% if business.is_active %}
             <button type="submit" class="btn btn-secondary">Pause</button>

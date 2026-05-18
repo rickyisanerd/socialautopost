@@ -6,6 +6,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from app.core.config import settings
 from app.core.orchestrator import run_post_cycle
 from app.core.metrics import collect_metrics
+from app.core.reports import send_daily_reports
 
 log = logging.getLogger("socialautopost")
 
@@ -47,9 +48,19 @@ def start_scheduler():
         name="Metrics Collection",
     )
 
+    # Daily metrics report emails — 8:00 AM Central every day
+    scheduler.add_job(
+        _send_daily_reports,
+        trigger=CronTrigger(hour=8, minute=0, timezone=settings.timezone),
+        id="daily_reports",
+        replace_existing=True,
+        name="Daily Reports",
+    )
+
     scheduler.start()
     log.info(f"Scheduler started: posting on {cron_days} at {settings.posting_time} {settings.timezone}")
     log.info("Metrics collection scheduled every 6 hours")
+    log.info("Daily reports scheduled at 8:00 AM Central")
 
 
 async def _run_cycle():
@@ -66,3 +77,11 @@ async def _collect_metrics():
         await collect_metrics()
     except Exception as e:
         log.error(f"Scheduled metrics collection failed: {e}")
+
+
+async def _send_daily_reports():
+    log.info("Daily report emails starting")
+    try:
+        await send_daily_reports()
+    except Exception as e:
+        log.error(f"Daily report emails failed: {e}")

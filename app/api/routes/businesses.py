@@ -132,6 +132,14 @@ async def trigger_metrics(request: Request, business_id: int):
     return RedirectResponse(url=f"/dashboard/business/{business_id}", status_code=303)
 
 
+@router.post("/{business_id}/send-report")
+async def trigger_report(request: Request, business_id: int):
+    _guard(request)
+    from app.core.reports import send_daily_reports
+    await send_daily_reports()
+    return RedirectResponse(url=f"/dashboard/business/{business_id}", status_code=303)
+
+
 @router.post("/{business_id}/toggle")
 async def toggle_business(request: Request, business_id: int, db: AsyncSession = Depends(get_db)):
     _guard(request)
