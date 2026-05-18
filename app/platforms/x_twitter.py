@@ -26,7 +26,7 @@ class XTwitterClient(PlatformClient):
         signature = hmac.new(signing_key.encode(), base_string.encode(), hashlib.sha1)
         return base64.b64encode(signature.digest()).decode()
 
-    def _oauth_header(self, method: str, url: str) -> str:
+    def _oauth_header(self, method: str, url: str, query_params: dict | None = None) -> str:
         oauth_params = {
             "oauth_consumer_key": self.api_key,
             "oauth_nonce": uuid.uuid4().hex,
@@ -35,7 +35,11 @@ class XTwitterClient(PlatformClient):
             "oauth_token": self.access_token,
             "oauth_version": "1.0",
         }
-        oauth_params["oauth_signature"] = self._oauth_signature(method, url, oauth_params)
+        # OAuth 1.0a requires query params in the signature base string
+        sig_params = {**oauth_params}
+        if query_params:
+            sig_params.update(query_params)
+        oauth_params["oauth_signature"] = self._oauth_signature(method, url, sig_params)
         header = ", ".join(f'{k}="{urllib.parse.quote(str(v), safe="")}"' for k, v in sorted(oauth_params.items()))
         return f"OAuth {header}"
 
@@ -62,15 +66,25 @@ class XTwitterClient(PlatformClient):
         """Fetch X/Twitter tweet metrics: likes, retweets, replies, bookmarks."""
         try:
             url = f"{API_BASE}/2/tweets/{post_id}"
+            query_params = {"tweet.fields": "public_metrics"}
             async with httpx.AsyncClient(timeout=30) as client:
                 r = await client.get(
                     url,
-                    headers={"Authorization": self._oauth_header("GET", url)},
-                    params={"tweet.fields": "public_metrics"},
+                    headers={"Authorization": self._oauth_header("GET", url, query_params)},
+                    params=query_params,
                 )
+                if r.status_code != 200:
+                    import logging
+                    logging.getLogger("socialautopost").warning(
+                        f"X metrics failed for {post_id}: HTTP {r.status_code} — {r.text[:200]}"
+                    )
+                    return None
+
                 data = r.json()
                 tweet = data.get("data", {})
                 pub = tweet.get("public_metrics", {})
+                if not pub:
+                    return None
 
                 likes = pub.get("like_count", 0)
                 retweets = pub.get("retweet_count", 0)

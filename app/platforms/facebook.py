@@ -61,18 +61,32 @@ class FacebookClient(PlatformClient):
         """Fetch Facebook post/photo/reel metrics."""
         try:
             async with httpx.AsyncClient(timeout=30) as client:
-                # Get basic engagement — works for photos, posts, and reels
-                r = await client.get(
-                    f"{GRAPH_API}/{post_id}",
-                    params={
-                        "fields": "reactions.summary(true),comments.summary(true),shares",
-                        "access_token": self.access_token,
-                    },
-                )
-                data = r.json()
-                likes = data.get("reactions", {}).get("summary", {}).get("total_count", 0)
-                comments = data.get("comments", {}).get("summary", {}).get("total_count", 0)
-                shares = data.get("shares", {}).get("count", 0)
+                likes = 0
+                comments = 0
+                shares = 0
+
+                # Try multiple field sets — different post types support different fields
+                for fields in [
+                    "reactions.summary(true),comments.summary(true),shares",
+                    "likes.summary(true),comments.summary(true),shares",
+                    "comments.summary(true),shares",
+                ]:
+                    r = await client.get(
+                        f"{GRAPH_API}/{post_id}",
+                        params={"fields": fields, "access_token": self.access_token},
+                    )
+                    if r.status_code == 200:
+                        data = r.json()
+                        likes = (
+                            data.get("reactions", {}).get("summary", {}).get("total_count", 0)
+                            or data.get("likes", {}).get("summary", {}).get("total_count", 0)
+                        )
+                        comments = data.get("comments", {}).get("summary", {}).get("total_count", 0)
+                        shares = data.get("shares", {}).get("count", 0)
+                        break
+                    else:
+                        err = r.json().get("error", {}).get("message", r.text[:200])
+                        log.debug(f"FB metrics fields '{fields}' failed for {post_id}: {err}")
 
                 # Try insights — different metrics for posts vs reels vs photos
                 impressions = 0
@@ -86,6 +100,9 @@ class FacebookClient(PlatformClient):
                         f"{GRAPH_API}/{post_id}/insights",
                         params={"metric": metrics, "access_token": self.access_token},
                     )
+                    if r2.status_code != 200:
+                        log.debug(f"FB insights '{metrics}' failed for {post_id}: {r2.status_code}")
+                        continue
                     insights = r2.json()
                     if "data" in insights and insights["data"]:
                         for item in insights["data"]:
@@ -99,6 +116,11 @@ class FacebookClient(PlatformClient):
                         break  # Got data, stop trying
 
                 engagement = likes + comments + shares + clicks
+                # Only return metrics if we got at least something
+                if engagement == 0 and impressions == 0 and reach == 0:
+                    log.info(f"FB metrics all zero for {post_id} — may lack pages_read_engagement permission")
+                    return None
+
                 return {
                     "impressions": impressions,
                     "reach": reach,

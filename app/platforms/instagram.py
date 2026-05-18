@@ -54,6 +54,10 @@ class InstagramClient(PlatformClient):
                         "access_token": self.access_token,
                     },
                 )
+                if r.status_code != 200:
+                    log.warning(f"IG basic metrics failed for {post_id}: {r.status_code} {r.text[:200]}")
+                    return None
+
                 data = r.json()
                 likes = data.get("like_count", 0)
                 comments = data.get("comments_count", 0)
@@ -63,30 +67,42 @@ class InstagramClient(PlatformClient):
                 reach = 0
                 saves = 0
                 shares = 0
-                r2 = await client.get(
-                    f"{GRAPH_API}/{post_id}/insights",
-                    params={
-                        "metric": "impressions,reach,saved,shares",
-                        "access_token": self.access_token,
-                    },
-                )
-                insights = r2.json()
-                if "data" in insights:
-                    for item in insights["data"]:
-                        val = item.get("values", [{}])[0].get("value", 0)
-                        if item["name"] == "impressions":
-                            impressions = val
-                        elif item["name"] == "reach":
-                            reach = val
-                        elif item["name"] == "saved":
-                            saves = val
-                        elif item["name"] == "shares":
-                            shares = val
-                else:
-                    # Fallback: try total_interactions if specific metrics fail
+
+                # Try different metric sets — reels vs images have different available metrics
+                for metric_set in [
+                    "impressions,reach,saved,shares",
+                    "impressions,reach,saved",
+                    "impressions,reach",
+                ]:
+                    r2 = await client.get(
+                        f"{GRAPH_API}/{post_id}/insights",
+                        params={
+                            "metric": metric_set,
+                            "access_token": self.access_token,
+                        },
+                    )
+                    if r2.status_code == 200:
+                        insights = r2.json()
+                        if "data" in insights:
+                            for item in insights["data"]:
+                                val = item.get("values", [{}])[0].get("value", 0)
+                                if item["name"] == "impressions":
+                                    impressions = val
+                                elif item["name"] == "reach":
+                                    reach = val
+                                elif item["name"] == "saved":
+                                    saves = val
+                                elif item["name"] == "shares":
+                                    shares = val
+                            break  # Got data, stop trying
+                    else:
+                        log.debug(f"IG insights '{metric_set}' failed for {post_id}: {r2.status_code}")
+
+                if impressions == 0 and reach == 0:
                     log.debug(f"IG insights unavailable for {post_id}, using basic counts only")
 
                 engagement = likes + comments + saves + shares
+                # Return even with just likes/comments — those are valid metrics
                 return {
                     "impressions": impressions,
                     "reach": reach,
