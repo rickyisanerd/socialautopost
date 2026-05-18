@@ -66,10 +66,11 @@ class FacebookClient(PlatformClient):
                 shares = 0
 
                 # Try multiple field sets — different post types support different fields
+                # Photos don't have reactions or shares; reels don't have reactions
                 for fields in [
                     "reactions.summary(true),comments.summary(true),shares",
                     "likes.summary(true),comments.summary(true),shares",
-                    "comments.summary(true),shares",
+                    "likes.summary(true),comments.summary(true)",
                 ]:
                     r = await client.get(
                         f"{GRAPH_API}/{post_id}",
