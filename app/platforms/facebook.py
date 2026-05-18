@@ -58,42 +58,45 @@ class FacebookClient(PlatformClient):
             return {"success": False, "post_id": "", "error": data.get("error", {}).get("message", str(data))}
 
     async def get_metrics(self, post_id: str) -> dict | None:
-        """Fetch Facebook post insights: impressions, reach, reactions, comments, shares, clicks."""
+        """Fetch Facebook post/photo/reel metrics."""
         try:
             async with httpx.AsyncClient(timeout=30) as client:
-                # Get basic engagement counts
+                # Get basic engagement — works for photos, posts, and reels
                 r = await client.get(
                     f"{GRAPH_API}/{post_id}",
                     params={
-                        "fields": "likes.summary(true),comments.summary(true),shares",
+                        "fields": "reactions.summary(true),comments.summary(true),shares",
                         "access_token": self.access_token,
                     },
                 )
                 data = r.json()
-                likes = data.get("likes", {}).get("summary", {}).get("total_count", 0)
+                likes = data.get("reactions", {}).get("summary", {}).get("total_count", 0)
                 comments = data.get("comments", {}).get("summary", {}).get("total_count", 0)
                 shares = data.get("shares", {}).get("count", 0)
 
-                # Get post insights for impressions, reach, clicks
+                # Try insights — different metrics for posts vs reels vs photos
                 impressions = 0
                 reach = 0
                 clicks = 0
-                r2 = await client.get(
-                    f"{GRAPH_API}/{post_id}/insights",
-                    params={
-                        "metric": "post_impressions,post_impressions_unique,post_clicks",
-                        "access_token": self.access_token,
-                    },
-                )
-                insights = r2.json()
-                for item in insights.get("data", []):
-                    val = item.get("values", [{}])[0].get("value", 0)
-                    if item["name"] == "post_impressions":
-                        impressions = val
-                    elif item["name"] == "post_impressions_unique":
-                        reach = val
-                    elif item["name"] == "post_clicks":
-                        clicks = val
+                for metrics in [
+                    "post_impressions,post_impressions_unique,post_clicks",
+                    "post_impressions,post_impressions_unique",
+                ]:
+                    r2 = await client.get(
+                        f"{GRAPH_API}/{post_id}/insights",
+                        params={"metric": metrics, "access_token": self.access_token},
+                    )
+                    insights = r2.json()
+                    if "data" in insights and insights["data"]:
+                        for item in insights["data"]:
+                            val = item.get("values", [{}])[0].get("value", 0)
+                            if "unique" in item["name"]:
+                                reach = val
+                            elif "impressions" in item["name"]:
+                                impressions = val
+                            elif "clicks" in item["name"]:
+                                clicks = val
+                        break  # Got data, stop trying
 
                 engagement = likes + comments + shares + clicks
                 return {

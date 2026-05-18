@@ -46,7 +46,7 @@ class InstagramClient(PlatformClient):
         """Fetch Instagram media insights: impressions, reach, likes, comments, saves."""
         try:
             async with httpx.AsyncClient(timeout=30) as client:
-                # Get basic fields
+                # Get basic fields — these are reliable
                 r = await client.get(
                     f"{GRAPH_API}/{post_id}",
                     params={
@@ -58,7 +58,7 @@ class InstagramClient(PlatformClient):
                 likes = data.get("like_count", 0)
                 comments = data.get("comments_count", 0)
 
-                # Get insights
+                # Get insights — try IG media metrics
                 impressions = 0
                 reach = 0
                 saves = 0
@@ -71,16 +71,20 @@ class InstagramClient(PlatformClient):
                     },
                 )
                 insights = r2.json()
-                for item in insights.get("data", []):
-                    val = item.get("values", [{}])[0].get("value", 0)
-                    if item["name"] == "impressions":
-                        impressions = val
-                    elif item["name"] == "reach":
-                        reach = val
-                    elif item["name"] == "saved":
-                        saves = val
-                    elif item["name"] == "shares":
-                        shares = val
+                if "data" in insights:
+                    for item in insights["data"]:
+                        val = item.get("values", [{}])[0].get("value", 0)
+                        if item["name"] == "impressions":
+                            impressions = val
+                        elif item["name"] == "reach":
+                            reach = val
+                        elif item["name"] == "saved":
+                            saves = val
+                        elif item["name"] == "shares":
+                            shares = val
+                else:
+                    # Fallback: try total_interactions if specific metrics fail
+                    log.debug(f"IG insights unavailable for {post_id}, using basic counts only")
 
                 engagement = likes + comments + saves + shares
                 return {

@@ -59,36 +59,35 @@ class XTwitterClient(PlatformClient):
         return None
 
     async def get_metrics(self, post_id: str) -> dict | None:
-        """Fetch X/Twitter tweet metrics: impressions, likes, retweets, replies, clicks."""
+        """Fetch X/Twitter tweet metrics: likes, retweets, replies, bookmarks."""
         try:
             url = f"{API_BASE}/2/tweets/{post_id}"
             async with httpx.AsyncClient(timeout=30) as client:
                 r = await client.get(
                     url,
                     headers={"Authorization": self._oauth_header("GET", url)},
-                    params={"tweet.fields": "public_metrics,organic_metrics"},
+                    params={"tweet.fields": "public_metrics"},
                 )
                 data = r.json()
                 tweet = data.get("data", {})
                 pub = tweet.get("public_metrics", {})
-                org = tweet.get("organic_metrics", {})
 
-                impressions = org.get("impression_count", pub.get("impression_count", 0))
                 likes = pub.get("like_count", 0)
                 retweets = pub.get("retweet_count", 0)
                 replies = pub.get("reply_count", 0)
                 quotes = pub.get("quote_count", 0)
-                clicks = org.get("url_link_clicks", 0)
+                bookmarks = pub.get("bookmark_count", 0)
+                impressions = pub.get("impression_count", 0)
 
                 return {
                     "impressions": impressions,
-                    "reach": 0,  # X doesn't expose reach
+                    "reach": 0,  # X doesn't expose reach on free tier
                     "likes": likes,
                     "comments": replies,
                     "shares": retweets + quotes,
-                    "saves": pub.get("bookmark_count", 0),
-                    "clicks": clicks,
-                    "engagement": likes + retweets + replies + quotes + clicks,
+                    "saves": bookmarks,
+                    "clicks": 0,  # requires elevated access
+                    "engagement": likes + retweets + replies + quotes + bookmarks,
                 }
         except Exception as e:
             import logging
